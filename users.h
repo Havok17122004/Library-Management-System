@@ -30,12 +30,12 @@ class User{
 
     protected :
     void saveAvailable() {
-        string filepath = FILEPATH / "data" / "available_books.json";
+        string filepath = (FILEPATH / "data" / "available_books.json").string();
         writeBooksTo(filepath, available_books);
     }
 
     void fetchAvailable() {
-        fs::path filePath = FILEPATH / "data" / "available_books.json";
+        fs::path filePath = (FILEPATH / "data" / "available_books.json").string();
         readBooksFrom(filePath.string(), available_books);
     }
 };
@@ -170,7 +170,7 @@ class Client: public User{
             fs::path parentDir = FILEPATH / "data" / "history";
             fs::create_directories(parentDir); 
             fs::path historyFile = parentDir / (to_string(this->account.id) + ".json");
-            readBooksFrom(historyFile, history_books);
+            readBooksFrom(historyFile.string(), history_books);
             fetched_history = true;
         }
     }
@@ -179,16 +179,16 @@ class Client: public User{
         fs::path parentDir = FILEPATH / "data" / "current";
         fs::create_directories(parentDir);
         fs::path path = parentDir / (to_string(this->account.id) + ".json");
-        readBooksFrom(path, borrowed_books);
+        readBooksFrom(path.string(), borrowed_books);
     }
 
     void saveBorrowed(int id) {
-        string filepath = FILEPATH / "data" / "current" / (to_string(id) + ".json");
+        string filepath = (FILEPATH / "data" / "current" / (to_string(id) + ".json")).string();
         writeBooksTo(filepath, borrowed_books);
     }
 
     void saveHistory(int id) {
-        string filepath = FILEPATH / "data" / "history" / (to_string(id) + ".json");
+        string filepath = (FILEPATH / "data" / "history" / (to_string(id) + ".json")).string();
         writeBooksTo(filepath, history_books);
     }
 };
@@ -393,7 +393,7 @@ class Librarian: public User{
     }
 
     void viewBorrowedBooks() {
-        string parentDir = FILEPATH / "data" / "current";
+        string parentDir = (FILEPATH / "data" / "current").string();
         fs::create_directories(parentDir);
         for (const auto& entry : fs::directory_iterator(parentDir)) {
             if (entry.is_regular_file() && entry.path().extension() == ".json") {
@@ -804,7 +804,7 @@ class Librarian: public User{
     bool fetched_reserved;
     void fetchReserved() {
         if (!fetched_reserved) {
-            string filepath = FILEPATH / "data" / "reserved.json";
+            string filepath = (FILEPATH / "data" / "reserved.json").string();
             readBooksFrom(filepath, reserved_books);
             fetched_reserved = true;
         }
@@ -812,7 +812,7 @@ class Librarian: public User{
 
 
     void saveReserved() {
-        string filepath = FILEPATH / "data" / "reserved.json";
+        string filepath = (FILEPATH / "data" / "reserved.json").string();
         writeBooksTo(filepath, reserved_books);
     }
 };
