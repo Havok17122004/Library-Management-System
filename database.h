@@ -10,7 +10,7 @@
 #include "transaction.h"
 #include "utils.h"
 #include "users.h"
-#include "/usr/include/nlohmann/json.hpp"  // Include the JSON library
+#include "json.hpp"  // Include the JSON library
 #define GREEN "\033[32m"
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -37,21 +37,64 @@ class Dues {
 
 class LibraryEntry {
     public:
-    string isbn;
     string status;
     int user_id;
+
+    LibraryEntry() {
+        // isbn = "";
+        status = "available";
+        user_id = -1;
+    }
+
+    LibraryEntry(string status, int user_id) {
+        // this->isbn = isbn;
+        this->status = status;
+        this->user_id = user_id;
+    }
 };
 
+void writeAccounts(int date, int accounts_num, const vector<Account>& accounts) {
+    auto accountsPath = FILEPATH / "data" / "accounts.json";
+    ofstream file(accountsPath.string());
+    if (!file.is_open()) {
+        cerr << "Error opening " << accountsPath.string() << " for writing." << endl;
+        return;
+    }
+    file << date << endl;  // Write the first line (date)
+    file << accounts_num << endl;
+    json j = json::array();
+    for (const auto& acc : accounts) {
+        j.push_back({{"id", acc.id}, {"user_type", acc.user_type}, {"payment", acc.amount_paid}});
+    }
+    file << j.dump(4); 
+    file.close();
+}
+
+
 void fetchAccounts( int& date, int &accounts_num, vector<Account>& accounts) {
+    accounts.clear();
     auto accountsPath = FILEPATH / "data" / "accounts.json";
     fs::path parentDir = accountsPath.parent_path();
     if (!fs::exists(parentDir)) {
         fs::create_directories(parentDir);  // Create "data/" if missing
     }
     if (!fs::exists(accountsPath)) {
-        ofstream newFile(accountsPath);
-        newFile << "0\n0\n[]";  // Initialize with empty values
-        newFile.close();
+        date = 0;
+        // ofstream newFile(accountsPath);
+        // accounts: 5 Students, 3 Faculty, 1 Librarian
+        vector<Account> accounts_init = {
+            Account(1, "student", 0),
+            Account(2, "student", 0),
+            Account(3, "student", 0),
+            Account(4, "student", 0),
+            Account(5, "student", 0),
+            Account(6, "faculty", 0),
+            Account(7, "faculty", 0),
+            Account(8, "faculty", 0),
+            Account(9, "librarian", 0)
+        };
+        accounts_num = accounts_init.size();
+       writeAccounts(0, accounts_init.size(), accounts_init);
     }
     ifstream file(accountsPath.string());
     if (!file.is_open()) {
@@ -80,25 +123,6 @@ void fetchAccounts( int& date, int &accounts_num, vector<Account>& accounts) {
     file.close();
 }
 
-void writeAccounts(int date, int accounts_num, const vector<Account>& accounts) {
-    auto accountsPath = FILEPATH / "data" / "accounts.json";
-    ofstream file(accountsPath.string());
-    if (!file.is_open()) {
-        cerr << "Error opening " << accountsPath.string() << " for writing." << endl;
-        return;
-    }
-    file << date << endl;  // Write the first line (date)
-    file << accounts_num << endl;
-    json j = json::array();
-    for (const auto& acc : accounts) {
-        j.push_back({{"id", acc.id}, {"user_type", acc.user_type}, {"payment", acc.amount_paid}});
-    }
-    
-    file << j.dump(4); 
-    file.close();
-}
-
-
 /*
 [
     { "isbn": "9781234567897", "status": "available", "user_id_associated": -1 },
@@ -106,59 +130,46 @@ void writeAccounts(int date, int accounts_num, const vector<Account>& accounts) 
 ]
 */
 
-void readAllBooks(vector<LibraryEntry>& entries) { //make changes
+void readAllBooks(unordered_map<string, LibraryEntry>& entries) {
     auto path = FILEPATH / "data" / "allbooks.json";
-    ifstream file(path.string());
+    if (!fs::exists(path.parent_path())) {
+        fs::create_directories(path.parent_path());
+    }
+    if (!fs::exists(path)) {
+        ofstream newFile(path);
+        newFile << "[]";
+        newFile.close();
+    }
+    ifstream file(path);
     if (!file.is_open()) {
         cerr << "Error opening " << path.string() << endl;
         return;
     }
     json j;
     file >> j;
-    for (const auto& book : j) {
-        entries.push_back({book["isbn"], book["status"], book["user_id"]});
-    }
     file.close();
+    for (const auto& book : j) {
+        // entries.push_back(LibraryEntry(book["isbn"], book["status"], book["user_id"]));
+        entries.emplace(book["isbn"], LibraryEntry(book["status"], book["user_id"]));
+    }
 }
 
-void writeAllBooks(const vector<LibraryEntry>& entries) {
+void writeAllBooks(unordered_map<string, LibraryEntry>& entries) {
     auto path = FILEPATH / "data" / "allbooks.json";
-    ofstream file(path.string());
+    if (!fs::exists(path.parent_path())) {
+        fs::create_directories(path.parent_path());
+    }
+    ofstream file(path);
     if (!file.is_open()) {
         cerr << "Error opening " << path.string() << " for writing." << endl;
         return;
     }
     json j = json::array();
     for (const auto& entry : entries) {
-        j.push_back({{"isbn", entry.isbn}, {"status", entry.status}, {"user_id", entry.user_id}});
+        // j.push_back({{"isbn", entry.isbn}, {"status", entry.status}, {"user_id", entry.user_id}});
+        j.push_back({{"isbn", entry.first},{"status", entry.second.status}, {"user_id", entry.second.user_id}});
     }
     file << j.dump(4);
-    file.close();
-}
-
-void readBooksFrom(const string& filename, unordered_map <string, Book>& books) {
-    fs::path filePath = filename;
-    fs::path parentDir = filePath.parent_path();
-    if (!fs::exists(parentDir)) {
-        fs::create_directories(parentDir);  // Create "data/" if missing
-    }
-    if (!fs::exists(filename)) {
-        ofstream newFile(filename);
-        newFile << "[]";  // Initialize as an empty JSON array
-        newFile.close();
-    }
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error opening " << filename << endl;
-        return;
-    }
-    json j;
-    file >> j;
-    for (const auto& book : j) {
-        Book newbook(book["title"], book["author"], book["publisher"],book["year"],book["isbn"],book["status"],book["borrowing_user"],book["borrow_date"],book["due_date"]);
-        books.emplace(newbook.isbn, newbook);
-    }
-
     file.close();
 }
 
@@ -192,16 +203,47 @@ void writeBooksTo(const string& filename, unordered_map <string, Book>& books) {
     file << j.dump(4);
     file.close();
 }
-void readOnlyBooksFrom(const string& filename, vector <Book>& books) {
+
+bool hasEnding (std::string const &fullString, std::string const &ending) {
+    if (fullString.length() >= ending.length()) {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } else {
+        return false;
+    }
+}
+
+void readBooksFrom(const string& filename, unordered_map <string, Book>& books) {
     fs::path filePath = filename;
     fs::path parentDir = filePath.parent_path();
     if (!fs::exists(parentDir)) {
         fs::create_directories(parentDir);  // Create "data/" if missing
     }
     if (!fs::exists(filename)) {
-        ofstream newFile(filename);
-        newFile << "[]";  // Initialize as an empty JSON array
-        newFile.close();
+        // cout << "Creating " << filename << endl;
+        if(hasEnding(filename, "available_books.json")) {
+            unordered_map<string, Book> books = {
+                {"9780131101630", Book("The C Programming Language", "Kernighan & Ritchie", "Prentice Hall", 1988, "9780131101630", "available", -1, -1, -1)},
+                {"9780262033848", Book("Introduction to Algorithms", "Cormen et al.", "MIT Press", 2009, "9780262033848", "available", -1, -1, -1)},
+                {"9780131103627", Book("Computer Networks", "Andrew Tanenbaum", "Prentice Hall", 2010, "9780131103627", "available", -1, -1, -1)},
+                {"9780201633610", Book("Design Patterns", "Gamma et al.", "Addison-Wesley", 1994, "9780201633610", "available", -1, -1, -1)},
+                {"9780132350884", Book("Clean Code", "Robert C. Martin", "Prentice Hall", 2008, "9780132350884", "available", -1, -1, -1)},
+                {"9780321356680", Book("Effective C++", "Scott Meyers", "Addison-Wesley", 2005, "9780321356680", "available", -1, -1, -1)},
+                {"9780596007126", Book("Head First Design Patterns", "Eric Freeman", "O'Reilly", 2004, "9780596007126", "available", -1, -1, -1)},
+                {"9780201616224", Book("The Pragmatic Programmer", "Andy Hunt", "Addison-Wesley", 1999, "9780201616224", "available", -1, -1, -1)},
+                {"9780133594140", Book("Artificial Intelligence: A Modern Approach", "Stuart Russell", "Pearson", 2015, "9780133594140", "available", -1, -1, -1)},
+                {"9781492052203", Book("System Design Interview", "Alex Xu", "ByteByteGo", 2020, "9781492052203", "available", -1, -1, -1)}
+            };
+            writeBooksTo(filename, books);
+            unordered_map <string, LibraryEntry> libraryelement;
+            for (const auto &book : books) {
+                libraryelement.emplace(book.first, LibraryEntry());
+            }
+            writeAllBooks(libraryelement);
+        } else {
+            ofstream newFile(filename);
+            newFile << "[]";  // Initialize as an empty JSON array
+            newFile.close();
+        }        
     }
     ifstream file(filename);
     if (!file.is_open()) {
@@ -212,11 +254,12 @@ void readOnlyBooksFrom(const string& filename, vector <Book>& books) {
     file >> j;
     for (const auto& book : j) {
         Book newbook(book["title"], book["author"], book["publisher"],book["year"],book["isbn"],book["status"],book["borrowing_user"],book["borrow_date"],book["due_date"]);
-        books.push_back(newbook);
+        books.emplace(newbook.isbn, newbook);
     }
 
     file.close();
 }
+
 
 /*
 [

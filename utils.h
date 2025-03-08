@@ -10,10 +10,10 @@
 using namespace std;
 int TODAYDATE ;
 
-Book getBookDetailsFromUser() {
+Book getBookDetailsFromUser(bool newbook) {
     string title, author, publisher, isbn;
     int year;
-    cout << "Enter book title: ";
+    cout << RESET << "Enter book title: ";
         getline(cin >> ws, title);
     cout << "Enter author: ";
         getline(cin >> ws, author);
@@ -25,15 +25,17 @@ Book getBookDetailsFromUser() {
         if (!cin.fail()) break;
         cin.clear();  // Clear error state
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cout << "Invalid year. Enter a valid year: ";
+        cout << RED << "Invalid year. Enter a valid year: " << RESET;
     }
+    if (newbook) {
     cout << "Enter ISBN : ";
-    while (true) {
-        cin >> isbn;
-        if (!cin.fail()) break;
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cout << "Invalid ISBN. Enter a valid ISBN ";
+        while (true) {
+            cin >> isbn;
+            if (!cin.fail()) break;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << RED << "Invalid ISBN. Enter a valid ISBN " << RESET;
+        }
     }
 
     return Book(title, author, publisher, year, isbn);

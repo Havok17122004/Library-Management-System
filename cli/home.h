@@ -11,6 +11,7 @@ using namespace std;
 bool displayLogin(vector <Account> &accounts) {
     while(true){
         int choice, id;
+        cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
         cout << BLUE;
         cout << "Login as:\n";
         cout << "Options:\n";
@@ -25,11 +26,11 @@ bool displayLogin(vector <Account> &accounts) {
             if (!cin.fail()) break;
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid choice. Enter a valid choice ";
+            cout << RED << "Invalid choice. Enter a valid choice " << RESET;
         }
         if (choice == 4) return false;
         if (choice < 1 || choice > 3) {
-            cout << BLUE << "Invalid choice. Please try again.\n" << RESET;
+            cout << RED << "Invalid choice. Please try again.\n" << RESET;
             continue;
         }
         string inp;
@@ -57,6 +58,7 @@ bool displayLogin(vector <Account> &accounts) {
 bool displayCreateAccount(vector <Account> &accounts){
     while (true) {
         int choice;
+        cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
         cout << BLUE;
         cout << "1 : Librarian (Create Account)\n";
         cout << "2 : Go back to Homepage\n";
@@ -69,7 +71,7 @@ bool displayCreateAccount(vector <Account> &accounts){
             if (!cin.fail()) break;
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid choice. Enter a valid choice ";
+            cout << RED << "Invalid choice. Enter a valid choice " << RESET;
         }
 
         switch (choice) {
@@ -91,7 +93,7 @@ bool displayCreateAccount(vector <Account> &accounts){
             case 3:
                 return true;
             default:
-                cout << BLUE << "Invalid choice. Please try again.\n" << RESET;
+                cout << RED << "Invalid choice. Please try again.\n" << RESET;
                 break;
         }
     }
@@ -112,15 +114,15 @@ bool displayHome(vector <Account> &accounts, int exit) {
     cout << "  1 : Login\n";
     cout << "  2 : Create an Account\n";
     cout << "  3 : Increment Day\n";
-    cout << "  4 : Exit\n";
+    cout << "  4 : Reset Data\n";
+    cout << "  5 : Exit\n" << RESET;
     cout << "\nEnter your choice: ";
-    cout << RESET;
     while (true) {
         cin >> choice;
         if (!cin.fail()) break;
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        cout << "Invalid choice. Enter a valid choice ";
+        cout << RED << "Invalid choice. Enter a valid choice " << RESET;
     }
 
     switch (choice) {
@@ -132,13 +134,24 @@ bool displayHome(vector <Account> &accounts, int exit) {
             break;
         case 3:
             setDate(getDate()+1);
-            cout << "Current Date = " << getDate() << endl;
+            cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
             break;
         case 4:
+        {
+            if (fs::exists(FILEPATH / "data")) {
+                fs::remove_all(FILEPATH / "data");
+                int accounts_num, today_date;
+                fetchAccounts(today_date, accounts_num, accounts); // newpath = FILEPATH/data/accounts.json
+                setDate(today_date);
+                Account::setAccountsNum(accounts_num);
+            }
+            break;
+        }
+        case 5:
             return true;
             break;
         default:
-            cout << BLUE << "\nInvalid choice. Please try again.\n" << RESET;
+            cout << RED << "\nInvalid choice. Please try again.\n" << RESET;
             break;
     }
     return false;

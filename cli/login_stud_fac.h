@@ -41,10 +41,11 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
         
         while (true) {
             int choice;
+            cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
             cout << BLUE;
             cout << "Logged in as: Student - " << id << endl;
-            cout << "Total borrowed books: " << stud.borrowed_books.size() << ". You can borrow up to " 
-                 << stud.MAX_BORROWABLE_BOOKS - stud.borrowed_books.size() << " more books.\n\n";
+            cout << "Total borrowed books: " << YELLOW << stud.borrowed_books.size() << BLUE << ". You can borrow up to " 
+                 << YELLOW << stud.MAX_BORROWABLE_BOOKS - stud.borrowed_books.size() << BLUE<< " more books.\n\n";
             cout << "Options:\n";
             cout << "  1 : View borrowed books\n";
             cout << "  2 : View available books\n";
@@ -54,7 +55,7 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
             // cout << "  6 : Pay dues\n";
             cout << "  6 : View history\n";
             cout << "  7 : Logout\n";
-            cout << "  8 : Logout and exit\n\n";
+            cout << "  8 : Logout and exit\n\n" << RESET;
 
             int net = 0;
             for (const auto& pair : stud.borrowed_books) {
@@ -63,9 +64,9 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
                     int fine = (getDate() - book.due_date) * stud.FINE_PER_BOOK_PER_DAY;
                     net += fine;
 
-                    cout << RED << "Book with ISBN: " << book.isbn << " is overdue!" << RESET << endl;
-                    cout << RED << "Due Date: " << book.due_date << " | Current Date: " << getDate() << " | Overdue Period: " <<  -book.due_date+ getDate() <<  RESET << endl;
-                    cout << RED << "Fine Accumulated: " << fine << " | Please return this book to prevent further fines.\n" << RESET << endl;
+                    cout << YELLOW << "Book with ISBN: " << book.isbn << " is overdue!" << RESET << endl;
+                    cout << YELLOW << "Due Date: " << book.due_date << " | Current Date: " << getDate() << " | Overdue Period: " <<  -book.due_date+ getDate() <<  RESET << endl;
+                    cout << YELLOW << "Fine Accumulated: " << fine << " | Please return this book to prevent further fines.\n" << RESET << endl;
                 }
             }
             int history_fine = 0;
@@ -82,14 +83,14 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
                 }
             }
 
-            cout << RED << "\nIncluding previous unpaid fines, your total fine is: " << net + history_fine << RESET << endl;
+            if (net + history_fine != 0) cout << RED << "\nIncluding previous unpaid fines, your total fine is: " << net + history_fine << RESET << endl;
             cout << "Enter your choice: ";
             while (true) {
                 cin >> choice;
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED << "Invalid choice. Enter a valid choice " << RESET;
             }
 
             if (choice == 7) {
@@ -156,7 +157,7 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
     } else {
         int x;
         for(int i = 0; i < accounts.size(); i++) {
-            if (accounts[i].id == id && accounts[i].user_type == "student") {
+            if (accounts[i].id == id && accounts[i].user_type == "faculty") {
                 found = true;
                 x = i;
                 break;
@@ -172,10 +173,11 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
 
         while (true) {
             int choice;
+            cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
             cout << BLUE;
             cout << "Logged in as: Faculty - " << id << endl;
-            cout << "Total borrowed books: " << fac.borrowed_books.size() << ". You can borrow up to " 
-                 << fac.MAX_BORROWABLE_BOOKS - fac.borrowed_books.size() << " more books.\n\n";
+            cout << "Total borrowed books: " << YELLOW << fac.borrowed_books.size() << BLUE << ". You can borrow up to "  << YELLOW
+                 << fac.MAX_BORROWABLE_BOOKS - fac.borrowed_books.size()  << BLUE << " more books.\n\n";
             cout << "Options:\n";
             cout << "  1 : View borrowed books\n";
             cout << "  2 : View available books\n";
@@ -197,7 +199,7 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED << "Invalid choice. Enter a valid choice " << RESET;
             }
             if (choice == 6) {
                 exit = false;
@@ -250,7 +252,7 @@ bool loginStudFac(int &id, vector <Account> &accounts, bool student) {
                     fac.viewHistory();
                     break;
                 default:
-                    cout << BLUE << "Invalid choice. Please try again.\n" << RESET;
+                    cout << RED << "Invalid choice. Please try again.\n" << RESET;
             }
         }
         accounts[x] = fac.account;

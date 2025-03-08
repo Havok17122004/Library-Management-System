@@ -16,6 +16,7 @@ class User{
     public:
     Account account;
     unordered_map <string, Book> available_books;
+    unordered_map <string, LibraryEntry> library;
 
     User() {
         fetchAvailable();
@@ -35,11 +36,6 @@ class User{
 
     void fetchAvailable() {
         fs::path filePath = FILEPATH / "data" / "available_books.json";
-        if (!fs::exists(filePath)) {
-            ofstream file(filePath);
-            file << "[]"; // Initialize empty JSON array
-            file.close();
-        }
         readBooksFrom(filePath.string(), available_books);
     }
 };
@@ -52,7 +48,7 @@ class Client: public User{
     int MAX_BORROWABLE_BOOKS;
     int MAX_BORROWABLE_TIME;
     unordered_map <string, Book> borrowed_books;
-    vector <Book> history_books;
+    unordered_map <string, Book> history_books;
 
     Client() {
         fetched_history = false;
@@ -70,7 +66,7 @@ class Client: public User{
             fetchHistory();
         }
         for (auto& book : history_books) {
-            book.printBook();
+            book.second.printBook();
         }
     }
 
@@ -99,7 +95,7 @@ class Client: public User{
                     if (!cin.fail()) break;
                     cin.clear();
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    cout << "Invalid choice. Enter a valid choice ";
+                    cout << RED << "Invalid choice. Enter a valid choice " << RESET;
                 }
 
                 if (choice == 1) {
@@ -111,11 +107,13 @@ class Client: public User{
                     newbook.due_date = newbook.borrow_date + MAX_BORROWABLE_TIME; 
 
                     borrowed_books[isbn] = newbook;
+                    library[isbn].status = "borrowed";
+                    library[isbn].user_id = account.id;
                     cout << GREEN << "Book successfully borrowed!\n" << RESET;
                     return;
                 } 
             } else { 
-                cout << "Book not found!" << endl;
+                cout << RED << "Book not found!" << RESET <<endl;
                 return;
             }
         }
@@ -137,7 +135,7 @@ class Client: public User{
                     if (!cin.fail()) break;
                     cin.clear();
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    cout << "Invalid choice. Enter a valid choice ";
+                    cout << RED << "Invalid choice. Enter a valid choice " << RESET;
                 }
 
                 if (choice == 1) {
@@ -145,19 +143,21 @@ class Client: public User{
                         updateStudentDues(this, newbook.isbn, newbook.due_date, getDate());
                     }
                     borrowed_books.erase(iter);
-                    history_books.push_back(newbook);
+                    history_books.emplace(newbook.isbn, newbook);
                     newbook.status = "available";
                     newbook.borrowing_user = -1;
                     newbook.borrow_date = -1;
                     newbook.due_date = -1; 
 
                     available_books[isbn] = newbook;
-
+                    library[isbn].status = "available";
+                    library[isbn].user_id = -1;
+                    // search library by isbn and change status to available and id to -1
                     cout << GREEN << "Book successfully returned!\n" << RESET;
                     return;
                 } 
             } else { 
-                cout << "Book not borrowed earlier!" << endl;
+                cout << RED <<"Book not borrowed earlier!" <<RESET<< endl;
                 return;
             }
         }
@@ -166,26 +166,20 @@ class Client: public User{
 
     protected:
     void fetchHistory() {
-        if (!fetched_history){
-            string parentDir = FILEPATH / "data" / "history";
-            fs::create_directories(parentDir);
-            for (const auto& entry : fs::directory_iterator(parentDir)) {
-                if (entry.is_regular_file() && entry.path().extension() == ".json") {
-                    readOnlyBooksFrom(entry.path().string(), history_books);
-                }
-            }
+        if (!fetched_history) {
+            fs::path parentDir = FILEPATH / "data" / "history";
+            fs::create_directories(parentDir); 
+            fs::path historyFile = parentDir / (to_string(this->account.id) + ".json");
+            readBooksFrom(historyFile, history_books);
+            fetched_history = true;
         }
-        fetched_history = true;
     }
 
     void fetchBorrowed() { 
-        string parentDir = FILEPATH / "data" / "current";
+        fs::path parentDir = FILEPATH / "data" / "current";
         fs::create_directories(parentDir);
-        for (const auto& entry : fs::directory_iterator(parentDir)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".json") {
-                readBooksFrom(entry.path().string(), borrowed_books);
-            }
-        }
+        fs::path path = parentDir / (to_string(this->account.id) + ".json");
+        readBooksFrom(path, borrowed_books);
     }
 
     void saveBorrowed(int id) {
@@ -195,7 +189,7 @@ class Client: public User{
 
     void saveHistory(int id) {
         string filepath = FILEPATH / "data" / "history" / (to_string(id) + ".json");
-        writeBooksTo(filepath, borrowed_books);
+        writeBooksTo(filepath, history_books);
     }
 };
 
@@ -215,6 +209,7 @@ class Student: public Client{
         account.amount_paid = 0;
         account.id = Account::account_num;
         account.user_type = "student";
+        readAllBooks(library);
     }
 
     Student(int &id, int payment) {
@@ -226,19 +221,13 @@ class Student: public Client{
         FINE_PER_BOOK_PER_DAY = 10;
         fetchBorrowed();
         fetchDues();
+        readAllBooks(library);
     }
     // make a new file for each user which contains the dues for each unpaid book.
 
     void viewPayDues() { // consider we can only pay those books which we have returned.
-        int history_fine = 0;
-        // for (const auto& due : this->dues) {
-        //     if (due.return_date > due.due_date) {
-        //         int fine = (due.return_date - due.due_date) * FINE_PER_BOOK_PER_DAY;
-        //         history_fine += fine;
-        //     }    
-        // }
         total_fine = 0;
-        cout << "You can only pay the fines for the books you have already returned." << endl;
+        cout << YELLOW <<"You can only pay the fines for the books you have already returned." <<RESET<< endl;
         for (auto &due : dues) {
             if (getDate() > due.due_date){
             cout << "isbn: " << due.isbn << ", due date: " << due.due_date << ", Return date: " << due.return_date << endl;
@@ -246,21 +235,21 @@ class Student: public Client{
             total_fine += (due.return_date - due.due_date)*FINE_PER_BOOK_PER_DAY;
             }
         }
-        if (total_fine + history_fine == 0) {
+        if (total_fine == 0) {
             cout << GREEN << "You don't have any remaining dues!\n" << RESET << endl;
             return;
         } 
-        cout << YELLOW << "Therefore the total fine is " << total_fine + history_fine<< endl;
+        cout << YELLOW << "Therefore the total fine is " << total_fine << endl;
         if (account.amount_paid != 0) cout << "You have already paid " << account.amount_paid << endl;
-        cout << "Fees remaining: " << total_fine +history_fine - account.amount_paid << RESET << endl; 
-        cout << "\n\n Would you like to pay the dues?\n  1: Yes\n  2: No\n";
+        cout << "Fees remaining: " << total_fine  - account.amount_paid << RESET << endl; 
+        cout << BLUE << "\n\n Would you like to pay the dues?\n  1: Yes\n  2: No\n" << RESET;
         int choice;
         while (true) {
             cin >> choice;
             if (!cin.fail()) break;
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid choice. Enter a valid choice ";
+            cout << RED << "Invalid choice. Enter a valid choice " << RESET;
         }
         if (choice == 1) {
             cout << BLUE << "Enter the payment to be done: " << RESET;
@@ -275,13 +264,13 @@ class Student: public Client{
 
             if (new_payment <= 0) {
                 cout << RED << "Invalid payment amount. Please enter a positive value." << RESET << endl;
-            } else if (new_payment > total_fine+history_fine) {
+            } else if (new_payment > total_fine) {
                 cout << RED << "Payment exceeds the outstanding fine. Please enter a valid amount." << RESET << endl;
             } else {
                 account.amount_paid += new_payment;
                 cout << GREEN << "Payment of ₹" << new_payment << " successful. Remaining due: ₹" 
-                    << total_fine + history_fine- account.amount_paid << RESET << endl;
-                if (total_fine + history_fine - account.amount_paid == 0){
+                    << total_fine - account.amount_paid << RESET << endl;
+                if (total_fine  - account.amount_paid == 0){
                     total_fine = 0;
                     account.amount_paid = 0;
                     dues.clear();
@@ -290,7 +279,7 @@ class Student: public Client{
         } else if (choice == 2) {
             return;
         } else {
-            cout << BLUE << "Invalid choice. Redirecting to homepage.\n" << RESET;
+            cout << RED << "Invalid choice. Redirecting to homepage.\n" << RESET;
             return;
         }
     }
@@ -300,6 +289,7 @@ class Student: public Client{
         saveAvailable();
         saveDues();
         saveHistory(this->account.id);
+        writeAllBooks(library);
     }
     private :
     void saveDues() {
@@ -335,6 +325,7 @@ class Faculty: public Client{
         max_due_period = 0;
         account.id = Account::account_num;
         account.user_type = "faculty";
+        readAllBooks(library);
     }
 
     Faculty(int& id) {
@@ -345,7 +336,7 @@ class Faculty: public Client{
         MAX_DUE_PERIOD_ALLOWABLE = 60;
         fetchBorrowed();
         max_due_period = 0; // Initialize to 0
-
+        readAllBooks(library);
         // Iterate over borrowed_books to find the max due period
         for (const auto& pair : borrowed_books) {
             const Book& book = pair.second;
@@ -357,16 +348,16 @@ class Faculty: public Client{
         saveBorrowed(this->account.id);
         saveAvailable();
         saveHistory(this->account.id);
+        writeAllBooks(library);
     }
 };
 
 class Librarian: public User{
     public:
     unordered_map <string, Book> reserved_books;
-    int total_books;
     int borrowed_books_num;
     int reserved_books_num;
-    vector <LibraryEntry> library;
+    
 
     Librarian() {
         Account::account_num++;
@@ -374,15 +365,14 @@ class Librarian: public User{
         account.user_type = "librarian";
         fetched_reserved = false;
         borrowed_books_num = 0;
-        total_books = 0;
         reserved_books_num = 0;
+        readAllBooks(library);
         for(auto& i : library) {
-            if(i.status == "borrowed") {
+            if(i.second.status == "borrowed") {
                 borrowed_books_num++;
-            } else if (i.status == "reserved") {
+            } else if (i.second.status == "reserved") {
                 reserved_books_num++;
             }
-            total_books++;
         }
     }
 
@@ -391,15 +381,14 @@ class Librarian: public User{
         account.user_type = "librarian";
         fetched_reserved = false;
         borrowed_books_num = 0;
-        total_books = 0;
         reserved_books_num = 0;
+        readAllBooks(library);
         for(auto& i : library) {
-            if(i.status == "borrowed") {
+            if(i.second.status == "borrowed") {
                 borrowed_books_num++;
-            } else if (i.status == "reserved") {
+            } else if (i.second.status == "reserved") {
                 reserved_books_num++;
             }
-            total_books++;
         }
     }
 
@@ -421,6 +410,7 @@ class Librarian: public User{
         // save reserved books
         saveReserved();
         saveAvailable();
+        writeAllBooks(library);
         // save available books
     }
 
@@ -432,35 +422,37 @@ class Librarian: public User{
 
     void addBook(Book& book) {
         available_books.emplace(book.isbn, book);
+        library.emplace(book.isbn, LibraryEntry("available", -1));
     }
 
     void removeBook(string& isbn) {
-        auto iter = available_books.find(isbn);
-        if (iter == available_books.end()) {
-            cout << "Book not found!" << endl;
+        auto iter1 = available_books.find(isbn);
+        if (iter1 == available_books.end()) {
+            cout << RED << "Book not found!" <<RESET<< endl;
             return;
         }
 
         while (true) {
-            cout << "Are you sure you want to delete this book? (1: Yes, 2: No): ";
+            cout <<BLUE << "Are you sure you want to delete this book? (1: Yes, 2: No): " << RESET;
             int choice;
             while (true) {
                 cin >> choice;
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout <<RED << "Invalid choice. Enter a valid choice "<<RESET;
             }
+            auto iter2 = library.find(isbn);
             if (choice == 1) {
-                available_books.erase(iter);
-                cout << "Book successfully removed!" << endl;
-                this->total_books--;
+                available_books.erase(iter1);
+                library.erase(iter2);
+                cout << GREEN<<"Book successfully removed!" << RESET<<endl;
                 break;
             } else if (choice == 2) {
-                cout << "Operation canceled." << endl;
+                cout <<BLUE<< "Operation canceled."<<RESET << endl;
                 break;
             } else {
-                cout << "Invalid choice. Please enter 1 or 2." << endl;
+                cout << RED<<"Invalid choice. Please enter 1 or 2." <<RESET<< endl;
             }
         }
     }
@@ -473,7 +465,8 @@ class Librarian: public User{
             return;
         }
         while (true) {
-            Book updatedBook = getBookDetailsFromUser();
+            cout << "Note: cannot change the isbn of a book" << endl;
+            Book updatedBook = getBookDetailsFromUser(false);
             updatedBook.printBook();
             cout << BLUE << "Confirm book update?\n";
             cout << "  1: Yes\n";
@@ -485,7 +478,7 @@ class Librarian: public User{
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED<<"Invalid choice. Enter a valid choice "<<RESET;
             }
             if (choice == 1) {
                 available_books.erase(iter);
@@ -524,7 +517,7 @@ class Librarian: public User{
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED <<"Invalid choice. Enter a valid choice "<<RESET;
             }
 
             if (choice == 1) {
@@ -533,6 +526,9 @@ class Librarian: public User{
 
                 // Move book from available to reserved
                 available_books.erase(iter);
+                library[isbn].status = "reserved";
+                library[isbn].user_id = -1;
+                // find in library entry by isbn and then change status to reserved.
                 reserved_books[isbn] = reservedBook;
                 this->reserved_books_num++;
                 cout << GREEN << "Book successfully reserved!\n" << RESET;
@@ -568,7 +564,7 @@ class Librarian: public User{
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice: ";
+                cout << RED <<"Invalid choice. Enter a valid choice: "<<RESET;
             }
 
             if (choice == 1) {
@@ -579,6 +575,8 @@ class Librarian: public User{
                 reserved_books.erase(iter);
                 available_books[isbn] = unreservedBook;
                 this->reserved_books_num--;
+                library[isbn].status = "available";
+                // find in library entry by isbn and then change status to available.
 
                 cout << GREEN << "Book successfully unreserved!\n" << RESET;
                 break;
@@ -603,7 +601,7 @@ class Librarian: public User{
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED <<"Invalid choice. Enter a valid choice "<<RESET;
             }
             string userType;
             if (choice == 1) {
@@ -625,7 +623,7 @@ class Librarian: public User{
                 if (!cin.fail()) break;
                 cin.clear();
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                cout << "Invalid choice. Enter a valid choice ";
+                cout << RED<< "Invalid choice. Enter a valid choice "<< RESET;
             }
             if (confirmChoice == 2) {
                 continue; 
@@ -648,11 +646,11 @@ class Librarian: public User{
             vector<string> folders = {"data/current/", "data/history/", "data/dues/"};
             for (const auto &folder : folders) {
                 fs::path filePath = FILEPATH / folder / (to_string(userId) + ".json");
-                if (!fs::exists(filePath)) {
-                    ofstream file(filePath);
-                    file << "[]";
-                    file.close();
-                }
+                // if (!fs::exists(filePath)) {
+                //     ofstream file(filePath);
+                //     file << "[]";
+                //     file.close();
+                // }
             }
             break; 
         }
@@ -673,11 +671,11 @@ class Librarian: public User{
                         fs::remove(file);
                     }
                 }
-                cout << "User with ID " << id << " removed successfully!" << endl;
+                cout <<GREEN << "User with ID " << id << " removed successfully!" << RESET << endl;
                 return;
             }
         }
-        cout << "User does not exist!" << endl;
+        cout << RED << "User does not exist!" <<RESET << endl;
     }
 
     void manageUser(vector<Account> &accounts, int id) {
@@ -689,25 +687,25 @@ class Librarian: public User{
             }
         }
         if (!userAccount) {
-            cout << "User does not exist!" << endl;
+            cout <<RED<< "User does not exist!" <<RESET<< endl;
             return;
         }
         if (userAccount->user_type == "student") {
             Student student(id, userAccount->amount_paid); 
             while (true) {
-                cout << "\nManage Student Menu:\n";
+                cout << BLUE << "\nManage Student Menu:\n";
                 cout << "1. Borrow Book\n";
                 cout << "2. Return Book\n";
                 cout << "3. View/Pay Dues\n";
                 cout << "4. Exit\n";
-                cout << "Enter your choice: ";
+                cout << "Enter your choice: " << RESET;
                 int choice;
                 while (true) {
                     cin >> choice;
                     if (!cin.fail()) break;
                     cin.clear();
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    cout << "Invalid choice. Enter a valid choice ";
+                    cout << RED << "Invalid choice. Enter a valid choice " << RESET;
                 }
 
                 if(choice == 4) break;
@@ -746,25 +744,25 @@ class Librarian: public User{
                         student.viewPayDues();
                         break;
                     default:
-                        cout << "Invalid choice! Try again.\n";
+                        cout << RED << "Invalid choice! Try again.\n" << RESET;
                 }
             }
             student.saveData();
         } else if (userAccount->user_type == "faculty") {
             Faculty faculty(id); 
             while (true) {
-                cout << "\nManage Faculty Menu:\n";
+                cout << BLUE<<"\nManage Faculty Menu:\n";
                 cout << "1. Borrow Book\n";
                 cout << "2. Return Book\n";
                 cout << "3. Exit\n";
-                cout << "Enter your choice: ";
+                cout << "Enter your choice: "<<RESET;
                 int choice;
                 while (true) {
                     cin >> choice;
                     if (!cin.fail()) break;
                     cin.clear();
                     cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                    cout << "Invalid choice. Enter a valid choice ";
+                    cout << RED << "Invalid choice. Enter a valid choice " << RESET;
                 }
                 if (choice == 3) break;
                 switch (choice) {
@@ -794,7 +792,7 @@ class Librarian: public User{
                         }
                         break;
                     default:
-                        cout << "Invalid choice! Try again.\n";
+                        cout << RED << "Invalid choice! Try again.\n" << RESET;
                 }
             }
             faculty.saveData();

@@ -19,9 +19,10 @@ bool loginLib(int &id, vector <Account> &accounts) {
     Librarian librarian(id); 
     while (true) {
         int choice;
+        cout << YELLOW << "Current Date = " << getDate() << endl << RESET;
         cout << BLUE;
         cout << "Logged in as: Librarian - " << id << endl;
-        cout << "Total books in library: " << librarian.total_books << endl;
+        cout << "Total books in library: " << librarian.library.size() << endl;
         cout << "Available books: " << librarian.available_books.size() << endl;
         cout << "Borrowed books: " << librarian.borrowed_books_num << endl;
         cout << "Reserved books: " << librarian.reserved_books_num << endl;
@@ -48,7 +49,7 @@ bool loginLib(int &id, vector <Account> &accounts) {
             if (!cin.fail()) break;
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid choice. Enter a valid choice ";
+            cout << RED << "Invalid choice. Enter a valid choice " << RESET;
         }
         if (choice == 12) {
             exit = false;
@@ -70,17 +71,11 @@ bool loginLib(int &id, vector <Account> &accounts) {
             case 4:
             {
                 while (true) {
-                    Book newBook = getBookDetailsFromUser();
+                    Book newBook = getBookDetailsFromUser(true);
                     newBook.printBook();
-                    bool exists = false;
-                    for (const auto& entry : librarian.library) {
-                        if (entry.isbn == newBook.isbn) {
-                            exists = true;
-                            break;
-                        }
-                    }
+                    auto iter = librarian.library.find(newBook.isbn);
 
-                    if (exists) {
+                    if (iter != librarian.library.end()) {
                         cout << "Another book with the same ISBN already exists. Please enter a different book.\n";
                         continue;
                     }
@@ -95,12 +90,11 @@ bool loginLib(int &id, vector <Account> &accounts) {
                         if (!cin.fail()) break;
                         cin.clear();
                         cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                        cout << "Invalid choice. Enter a valid choice ";
+                        cout << RED << "Invalid choice. Enter a valid choice " << RESET;
                     }
 
                     if (choice == 1) {
                         librarian.addBook(newBook);
-                        librarian.total_books++;
                         cout << GREEN << "Book successfully added!\n" << RESET;
                         break;
                     } else if (choice == 2) {
@@ -210,7 +204,7 @@ bool loginLib(int &id, vector <Account> &accounts) {
             // case 12:
             //     return true;
             default:
-                cout << BLUE << "Invalid choice. Please try again.\n" << RESET;
+                cout << RED << "Invalid choice. Please try again.\n" << RESET;
                 break;
         }
     }
